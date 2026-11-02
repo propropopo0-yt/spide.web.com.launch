@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Spider-Man: City Chase — Rooftop Choice & Character Fix</title>
+<title>Spider-Man: City Chase — Full Voxel City Update</title>
 <style>
 *{box-sizing:border-box}body{margin:0;overflow:hidden;background:#07111e;color:#fff;font:14px system-ui}canvas{display:block}
 #hud{position:fixed;inset:0;pointer-events:none}#brand{position:absolute;top:12px;left:16px;font-weight:1000;font-size:28px;letter-spacing:2px;text-shadow:0 2px 12px #000}#brand span{color:#ff345c}
@@ -66,7 +66,7 @@
   </div>
 </div>
 
-<div id="menu"><div class="card"><h1>SPIDER-<span>MAN</span></h1><p><b>City Chase — 10-level story update</b></p><p>Swing between buildings, chase Green Goblin to save MJ, fight bandits along the rooftops, then face Green Goblin, Kingpin, Doc Ock and Venom in a four-wave finale.</p><p><b>Tip:</b> Aim at a building and hold right-click to swing from a fixed web point. Hold Shift while swinging for a speed boost. Walk into a wall and keep pressing W to crawl up it. Space jumps off walls; double-tap Space for a higher backflip. Left-click or press F to punch.</p><p class="small">Stylized mannequin characters and a modern open-world city with varied facades, street lights and parked cars. Internet is needed to load Three.js.</p><button id="start">START GAME</button></div></div>
+<div id="menu"><div class="card"><h1>SPIDER-<span>MAN</span></h1><p><b>City Chase — 10-level story update</b></p><p>Swing between buildings, chase Green Goblin to save MJ, fight bandits along the rooftops, then face Green Goblin, Kingpin, Doc Ock and Venom in a four-wave finale.</p><p><b>Tip:</b> Aim at a building and hold right-click to swing from a fixed web point. Hold Shift while swinging for a speed boost. Walk into a wall and keep pressing W to crawl up it. Space jumps off walls; double-tap Space for a higher backflip. Left-click or press F to punch.</p><p class="small">An original voxel-style city with pixel-block roads, layered sidewalks, block-built skyscrapers, square windows, cubic trees, blocky cars and voxel characters. Internet is needed to load Three.js.</p><button id="start">START GAME</button></div></div>
 <script>
 (function loadThree(){
  const sources=['https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js','https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js'];
@@ -82,7 +82,36 @@ const camera=new THREE.PerspectiveCamera(68,innerWidth/innerHeight,.1,650);
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.0));renderer.shadowMap.enabled=false;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.05;document.body.appendChild(renderer.domElement);
 scene.add(new THREE.HemisphereLight(0xd8efff,0x344050,2));const sun=new THREE.DirectionalLight(0xffe5c2,3);sun.position.set(-70,130,70);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);scene.add(sun);
 const mat=(c,r=.7,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
-const mats=[0x526778,0x687d8e,0x3d5063,0x858e98].map(c=>mat(c));const road=mat(0x242c37),side=mat(0x858f99),red=mat(0xd51f40,.48,.12),blue=mat(0x163a6c,.48,.12),dark=mat(0x151c27),white=mat(0xf5f8ff),gold=mat(0xf3b94c,.35,.45);
+// Original voxel textures: nearest-neighbour pixels and block seams create a block-building-game look without reusing any game's textures.
+function makeVoxelTexture(base,accentA,accentB,gridColor,repeatX=1,repeatY=1){
+ const canvas=document.createElement('canvas');canvas.width=128;canvas.height=128;
+ const ctx=canvas.getContext('2d');
+ const hex=c=>'#'+c.toString(16).padStart(6,'0');
+ ctx.fillStyle=hex(base);ctx.fillRect(0,0,128,128);
+ let seed=(base^accentA^accentB)>>>0;
+ const rand=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296};
+ // 8-pixel colour cells create deliberately chunky pixel-art variation.
+ for(let y=0;y<128;y+=8)for(let x=0;x<128;x+=8){
+  const r=rand();ctx.fillStyle=hex(r<.16?accentA:r>.86?accentB:base);
+  ctx.fillRect(x,y,8,8);
+  if(r>.72){ctx.fillStyle='rgba(255,255,255,.10)';ctx.fillRect(x,y,8,2)}
+ }
+ ctx.strokeStyle=hex(gridColor);ctx.globalAlpha=.42;ctx.lineWidth=2;
+ for(let n=0;n<=128;n+=16){ctx.beginPath();ctx.moveTo(n,0);ctx.lineTo(n,128);ctx.stroke();ctx.beginPath();ctx.moveTo(0,n);ctx.lineTo(128,n);ctx.stroke()}
+ ctx.globalAlpha=1;
+ const tex=new THREE.CanvasTexture(canvas);tex.magFilter=THREE.NearestFilter;tex.minFilter=THREE.NearestFilter;
+ tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(repeatX,repeatY);tex.anisotropy=1;return tex;
+}
+function pixelateMaterial(material,base,light,shade,grid=0x15191f){material.map=makeVoxelTexture(base,light,shade,grid,1,1);material.needsUpdate=true;material.roughness=Math.max(material.roughness,.82);return material;}
+const mats=[0x526778,0x687d8e,0x3d5063,0x858e98].map((c,i)=>{const m=mat(c,.92,0);m.flatShading=true;m.map=makeVoxelTexture(c,[0x405568,0x526577,0x304252,0x707a83][i],[0x718698,0x8195a4,0x526677,0xa0a8b0][i],0x26323d,1.1,1.1);return m;});
+const road=mat(0x343b43,.98,0),side=mat(0x858f99,.95,0),red=mat(0xd51f40,.9,0),blue=mat(0x163a6c,.9,0),dark=mat(0x151c27,.95,0),white=mat(0xf5f8ff,.9,0),gold=mat(0xf3b94c,.85,0);
+road.map=makeVoxelTexture(0x343b43,0x404951,0x2d333a,0x20262c,28,28);
+side.map=makeVoxelTexture(0x858f99,0x9da6ad,0x747e87,0x58616a,2,28);
+red.map=makeVoxelTexture(0xd51f40,0xf04459,0x9e1931,0x681427,1,1);
+blue.map=makeVoxelTexture(0x163a6c,0x24538d,0x102b4e,0x091c35,1,1);
+dark.map=makeVoxelTexture(0x151c27,0x26303b,0x0b1119,0x080d13,1,1);
+white.map=makeVoxelTexture(0xf5f8ff,0xffffff,0xd9e0e8,0xaab4bf,1,1);
+gold.map=makeVoxelTexture(0xf3b94c,0xffd36a,0xc28a31,0x8b5d20,1,1);
 // Procedural suit webbing: a small reusable canvas texture adds seams without downloading assets.
 function makeSuitWebTexture(){
  const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');
@@ -98,17 +127,56 @@ function makeSuitWebTexture(){
 red.map=makeSuitWebTexture();red.needsUpdate=true;
 const facadeTrim=mat(0x8a9cae,.55,.15),roofEquipment=mat(0x283847,.75,.15),streetMetal=mat(0x263341,.45,.65),lampMat=mat(0xffe0a3,.25,.1);lampMat.emissive=new THREE.Color(0xffbb63);lampMat.emissiveIntensity=.85;
 function mesh(geo,m,parent=scene){const o=new THREE.Mesh(geo,m);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o}
-const mannequinJointGeometry=new THREE.SphereGeometry(1,14,10);
+const mannequinJointGeometry=new THREE.BoxGeometry(1,1,1);
 function mannequinJoint(parent,material,x,y,z,sx=.14,sy=sx,sz=sx){const j=mesh(mannequinJointGeometry,material,parent);j.position.set(x,y,z);j.scale.set(sx,sy,sz);return j}
 function box(w,h,d,m,x,y,z){const o=mesh(new THREE.BoxGeometry(w,h,d),m);o.position.set(x,y,z);return o}
 box(1500,1,1500,road,0,-.7,0);
+// Grid-aligned, block-tiled pavement and kerbs: the world floor reads as a voxel city street.
+const curbMat=mat(0x9ca5aa,.94,0),walkMat=mat(0x777f87,.94,0),grassMat=mat(0x477a39,.96,0),dirtMat=mat(0x795334,.98,0);
+curbMat.map=makeVoxelTexture(0x9ca5aa,0xb2b9bd,0x7f898f,0x5d666c,1,24);
+walkMat.map=makeVoxelTexture(0x777f87,0x91999f,0x626b72,0x414a52,1,26);
+grassMat.map=makeVoxelTexture(0x477a39,0x5d9445,0x315d2b,0x24461f,1,1);
+dirtMat.map=makeVoxelTexture(0x795334,0x90643e,0x5b3c27,0x3d291c,1,1);
+for(let lane=-252;lane<=252;lane+=42){
+ for(const sign of [-1,1]){
+  // Raised sidewalk strips beside each avenue, with a contrasting block curb.
+  box(3.8,.20,560,walkMat,lane+sign*13.7,-.09,0);
+  box(560,.20,3.8,walkMat,0,-.09,lane+sign*13.7);
+  box(.42,.30,560,curbMat,lane+sign*11.65,-.04,0);
+  box(560,.30,.42,curbMat,0,-.04,lane+sign*11.65);
+ }
+}
+// Small voxel park islands add grass-and-dirt block patches around the city grid.
+for(const [px,pz] of [[-210,-126],[126,-210],[-126,210],[210,126]]){
+ box(18,.34,18,dirtMat,px,-.02,pz);
+ box(18,.18,18,grassMat,px,.24,pz);
+ // Square-trunk, layered cube-canopy trees keep the park geometry in the same voxel style.
+ box(1.25,4.3,1.25,dirtMat,px,2.4,pz);
+ box(5.3,1.8,5.3,grassMat,px,5.1,pz);
+ box(4.2,1.8,4.2,grassMat,px,6.55,pz);
+ box(2.4,1.8,2.4,grassMat,px,7.9,pz);
+}
 const buildings=[],anchors=[];
 for(let x=-270;x<=270;x+=42)for(let z=-270;z<=270;z+=42){if(Math.abs(x)<20&&Math.abs(z)<20)continue;let h=22+Math.random()*48+(Math.random()<.12?22:0),w=17+Math.random()*5,d=17+Math.random()*5,b=box(w,h,d,mats[Math.floor(Math.random()*mats.length)],x,h/2-.2,z);b.userData={x,z,w,d,h,building:true};buildings.push(b);anchors.push(new THREE.Vector3(x,h,z));
  // Rooftop parapets and HVAC boxes break up the repetitive block silhouettes.
  if(Math.random()<.48){box(w+.34,.24,d+.34,facadeTrim,x,h-.14,z);}
  if(Math.random()<.36){let rw=2.2+Math.random()*2.8,rd=2+Math.random()*2.4;box(rw,.9,rd,roofEquipment,x+(Math.random()-.5)*w*.35,h+.25,z+(Math.random()-.5)*d*.35);}
  if(Math.random()<.22){let antenna=mesh(new THREE.CylinderGeometry(.035,.07,2.2,6),streetMetal);antenna.position.set(x+(Math.random()-.5)*w*.5,h+.95,z+(Math.random()-.5)*d*.5);}
- let win=mat(0x7ccbe9,.25,.2);win.emissive=new THREE.Color(0x17425b);win.emissiveIntensity=.5;for(let y=6;y<h-2;y+=9)for(let xx=-w/2+3;xx<w/2-1;xx+=6)if(Math.random()>.45){let ww=mesh(new THREE.BoxGeometry(1.4,1.4,.07),Math.random()<.15?gold:win);ww.position.set(x+xx,y,z+d/2+.06);ww.castShadow=false}}
+ let win=mat(0x7ccbe9,.82,.02);win.map=makeVoxelTexture(0x7ccbe9,0xa5e3f5,0x3e7895,0x1b465b,1,1);win.emissive=new THREE.Color(0x17425b);win.emissiveIntensity=.32;for(let y=6;y<h-2;y+=9)for(let xx=-w/2+3;xx<w/2-1;xx+=6)if(Math.random()>.45){let ww=mesh(new THREE.BoxGeometry(1.65,1.65,.16),Math.random()<.15?gold:win);ww.position.set(x+xx,y,z+d/2+.12);ww.castShadow=false}}
+// Stacked voxel facade courses and chunky corner columns make buildings feel built from blocks.
+const facadeBlockMats=[0x667987,0x87939c,0x4c5f70,0x9a9fa2].map(c=>{const m=mat(c,.96,0);m.map=makeVoxelTexture(c,(c&0xfefefe)+0x060606,(c&0xeeeeee),0x303a43,1,1);return m;});
+for(const b of buildings){
+ const u=b.userData;
+ const accent=facadeBlockMats[Math.floor(Math.random()*facadeBlockMats.length)];
+ // Pixel-block corner piers and a few projecting slab bands; keep the building's raycast body intact.
+ for(const sx of [-1,1])for(const sz of [-1,1]){
+  const pier=mesh(new THREE.BoxGeometry(.72,u.h,.72),accent);
+  pier.position.set(u.x+sx*(u.w/2-.36),u.h/2-.2,u.z+sz*(u.d/2-.36));pier.castShadow=false;
+ }
+ for(let yy=6;yy<u.h-2;yy+=12){
+  if(Math.random()<.72){const band=mesh(new THREE.BoxGeometry(u.w+.42,.28,u.d+.42),accent);band.position.set(u.x,yy,u.z);band.castShadow=false;}
+ }
+}
 const lineMat=mat(0xe6dba4);
 for(let i=-420;i<=420;i+=48){box(.13,.03,840,lineMat,i,-.16,0);box(840,.03,.13,lineMat,0,-.16,i)}
 // A few side-facing office windows and facade bands create a more believable modern open-world skyline.
@@ -136,7 +204,7 @@ function addParkedCar(x,z,color,rot=0){
  const cabin=mesh(new THREE.BoxGeometry(1.48,.62,1.88),paint,g);cabin.position.set(0,1.18,-.12);
  const windshield=mesh(new THREE.BoxGeometry(1.39,.44,.055),glass,g);windshield.position.set(0,1.2,.84);windshield.rotation.x=-.15;
  const rearGlass=mesh(new THREE.BoxGeometry(1.36,.42,.055),glass,g);rearGlass.position.set(0,1.2,-1.05);rearGlass.rotation.x=.16;
- for(const sx of [-1,1])for(const zz of [-1.36,1.36]){const wheel=mesh(new THREE.CylinderGeometry(.31,.31,.18,12),rubber,g);wheel.rotation.z=Math.PI/2;wheel.position.set(sx*1.02,.39,zz);}
+ for(const sx of [-1,1])for(const zz of [-1.36,1.36]){const wheel=mesh(new THREE.BoxGeometry(.38,.58,.78),rubber,g);wheel.position.set(sx*1.02,.39,zz);}
  for(const sx of [-1,1]){const light=mesh(new THREE.BoxGeometry(.28,.14,.045),lamp,g);light.position.set(sx*.67,.69,2.09);const rear=mesh(new THREE.BoxGeometry(.27,.14,.045),tail,g);rear.position.set(sx*.67,.69,-2.09);}
  return g;
 }
@@ -148,44 +216,44 @@ function addParkedCar(x,z,color,rot=0){
 
 // Street lamps and intersection light pools make the city feel less like bare test geometry.
 for(let lx=-210;lx<=210;lx+=84)for(let lz=-210;lz<=210;lz+=84){
- const pole=mesh(new THREE.CylinderGeometry(.075,.12,5.4,7),streetMetal);pole.position.set(lx+18,2.7,lz+18);
- const arm=mesh(new THREE.CylinderGeometry(.055,.07,1.15,6),streetMetal);arm.position.set(lx+18.48,5.15,lz+18);arm.rotation.z=-Math.PI/2;
- const bulb=mesh(new THREE.SphereGeometry(.18,8,6),lampMat);bulb.position.set(lx+19.0,5.05,lz+18);
+ const pole=mesh(new THREE.BoxGeometry(.24,5.4,.24),streetMetal);pole.position.set(lx+18,2.7,lz+18);
+ const arm=mesh(new THREE.BoxGeometry(1.15,.18,.18),streetMetal);arm.position.set(lx+18.48,5.15,lz+18);
+ const bulb=mesh(new THREE.BoxGeometry(.48,.22,.42),lampMat);bulb.position.set(lx+19.0,5.05,lz+18);
 }
 // Crosswalk markings around the starting plaza.
 for(let i=-4;i<=4;i++){box(1.1,.025,5.5,white,i*1.6,-.145,15);box(1.1,.025,5.5,white,i*1.6,-.145,-15);} 
 
 // Player character: articulated mannequin body with smooth plastic-like surfaces.
 const player=new THREE.Group();scene.add(player);
-const civilianTop=mat(0x43516b,.38,.04),civilianBottom=mat(0x202a39,.42,.04),skinMat=mat(0xc99775,.36,.03),hairMat=mat(0x201a20,.48,.03);
+const civilianTop=pixelateMaterial(mat(0x43516b,.9,0),0x43516b,0x5c6d8b,0x2d394e,0x1c2534),civilianBottom=pixelateMaterial(mat(0x202a39,.9,0),0x202a39,0x354457,0x111923,0x0b1119),skinMat=pixelateMaterial(mat(0xc99775,.9,0),0xc99775,0xe0b394,0x9c725d,0x745440),hairMat=pixelateMaterial(mat(0x201a20,.9,0),0x201a20,0x383039,0x100e12,0x08080b);
+// BLOCK-STYLE PLAYER: crisp cuboid parts inspired by voxel games, while retaining articulated pivots for animation.
 const torsoPivotY=1.78;
-const playerTorsoProfile=[[.195,1.02],[.225,1.12],[.245,1.28],[.235,1.43],[.232,1.58],[.285,1.75],[.345,1.94],[.365,2.09],[.335,2.23],[.265,2.38],[.155,2.53]].map(([r,y])=>new THREE.Vector2(r,y-torsoPivotY)); // centered on its own pivot: flat, athletic masculine chest with no breast-like contours
-const torso=mesh(new THREE.LatheGeometry(playerTorsoProfile,24),red,player);torso.position.y=torsoPivotY;
-const pelvis=mesh(new THREE.CapsuleGeometry(.275,.26,7,14),blue,player);pelvis.scale.set(1.02,1,.78);pelvis.position.y=1.34;
-const neck=mesh(new THREE.CylinderGeometry(.105,.135,.23,14),red,player);neck.position.y=2.63;
-const head=mesh(new THREE.SphereGeometry(.315,24,18),red,player);head.scale.set(1,.99,.94);head.position.set(0,3.02,0);
-const hairCap=mesh(new THREE.SphereGeometry(.29,16,12),hairMat,player);hairCap.scale.set(1.04,.60,1.02);hairCap.position.set(0,3.27,-.028);hairCap.visible=false;
+const torso=mesh(new THREE.BoxGeometry(.82,1.48,.48),red,player);torso.position.y=torsoPivotY;
+const pelvis=mesh(new THREE.BoxGeometry(.66,.42,.46),blue,player);pelvis.position.y=1.34;
+const neck=mesh(new THREE.BoxGeometry(.22,.22,.22),red,player);neck.position.y=2.63;
+const head=mesh(new THREE.BoxGeometry(.60,.60,.60),red,player);head.position.set(0,3.02,0);
+const hairCap=mesh(new THREE.BoxGeometry(.62,.18,.62),hairMat,player);hairCap.position.set(0,3.34,-.015);hairCap.visible=false;
 const eyeMeshes=[],arms=[],legs=[],feet=[],playerJoints=[];
 function addPlayerJoint(radius,suitMaterial,civilianMaterial,x,y,z,sx=radius,sy=radius,sz=radius){const joint=mannequinJoint(player,suitMaterial,x,y,z,sx,sy,sz);playerJoints.push({joint,suitMaterial,civilianMaterial});return joint}
 for(const sideSign of [-1,1]){
-  let eye=mesh(new THREE.SphereGeometry(.105,16,12),white,player);eye.scale.set(.75,1.2,.35);eye.position.set(sideSign*.135,3.045,.282);eye.rotation.z=-sideSign*.22;eyeMeshes.push(eye);
-  let arm=mesh(new THREE.CapsuleGeometry(.135,.76,7,12),red,player);arm.position.set(sideSign*.50,1.99,0);arm.rotation.z=-sideSign*.08;arms.push(arm);
-  let leg=mesh(new THREE.CapsuleGeometry(.16,.78,7,12),blue,player);leg.position.set(sideSign*.215,.74,0);legs.push(leg);
-  // Rounded mannequin joints follow the lean anatomical proportions in the reference.
-  addPlayerJoint(.145,red,civilianTop,sideSign*.425,2.34,0,.145,.15,.14);
-  addPlayerJoint(.105,red,civilianTop,sideSign*.505,1.99,0,.11,.11,.10);
-  addPlayerJoint(.09,red,civilianTop,sideSign*.50,1.62,.015,.095,.095,.09);
-  addPlayerJoint(.125,blue,civilianBottom,sideSign*.21,1.23,0,.13,.13,.12);
-  addPlayerJoint(.115,blue,civilianBottom,sideSign*.215,.50,0,.12,.12,.11);
-  addPlayerJoint(.085,blue,civilianBottom,sideSign*.215,.17,0,.095,.09,.10);
-  const foot=mesh(new THREE.CapsuleGeometry(.095,.23,5,9),blue,player);foot.rotation.x=Math.PI/2;foot.position.set(sideSign*.215,.105,.12);feet.push(foot);
+  let eye=mesh(new THREE.BoxGeometry(.17,.075,.055),white,player);eye.position.set(sideSign*.145,3.045,.307);eye.rotation.z=-sideSign*.12;eyeMeshes.push(eye);
+  let arm=mesh(new THREE.BoxGeometry(.29,.82,.31),red,player);arm.position.set(sideSign*.54,1.98,0);arm.rotation.z=-sideSign*.025;arms.push(arm);
+  let leg=mesh(new THREE.BoxGeometry(.30,.78,.34),blue,player);leg.position.set(sideSign*.215,.74,0);legs.push(leg);
+  // Square shoulder, elbow, wrist, knee and ankle joints keep the block-character silhouette.
+  addPlayerJoint(.145,red,civilianTop,sideSign*.425,2.34,0,.15,.15,.15);
+  addPlayerJoint(.105,red,civilianTop,sideSign*.54,1.99,0,.12,.12,.12);
+  addPlayerJoint(.09,red,civilianTop,sideSign*.54,1.58,.015,.10,.10,.10);
+  addPlayerJoint(.125,blue,civilianBottom,sideSign*.215,1.23,0,.14,.13,.14);
+  addPlayerJoint(.115,blue,civilianBottom,sideSign*.215,.50,0,.13,.12,.13);
+  addPlayerJoint(.085,blue,civilianBottom,sideSign*.215,.17,0,.11,.09,.11);
+  const foot=mesh(new THREE.BoxGeometry(.34,.19,.48),blue,player);foot.position.set(sideSign*.215,.105,.13);feet.push(foot);
 }
-let emblem=mesh(new THREE.SphereGeometry(.1,12,8),dark,player);emblem.scale.set(.5,1.8,.3);emblem.position.set(0,2.22,.405);emblem.visible=false;
+let emblem=mesh(new THREE.BoxGeometry(.28,.42,.035),dark,player);emblem.position.set(0,2.22,.255);emblem.visible=false;
 const spiderLogo=new THREE.Group();player.add(spiderLogo);const logoMat=mat(0xdce7ef,.31,.22);
-const logoBody=mesh(new THREE.CapsuleGeometry(.045,.30,4,7),logoMat,spiderLogo);logoBody.position.set(0,2.19,.405);
+const logoBody=mesh(new THREE.BoxGeometry(.09,.31,.045),logoMat,spiderLogo);logoBody.position.set(0,2.19,.255);
 for(const sideSign of [-1,1])for(let i=0;i<3;i++){
- const legPiece=mesh(new THREE.CapsuleGeometry(.022,.21,3,5),logoMat,spiderLogo);
- legPiece.position.set(sideSign*(.085+i*.03),2.25-i*.14,.405);legPiece.rotation.z=sideSign*(.65+i*.12);
+ const legPiece=mesh(new THREE.BoxGeometry(.055,.22,.045),logoMat,spiderLogo);
+ legPiece.position.set(sideSign*(.085+i*.03),2.25-i*.14,.255);legPiece.rotation.z=sideSign*(.65+i*.12);
 }
 // Wing membranes and web ribs inspired by the extended underarm glider in the reference image.
 const gliderRig=new THREE.Group();player.add(gliderRig);gliderRig.visible=false;
@@ -254,50 +322,60 @@ function speakGwenPhoneCall(){
 function clearEnemies(){for(const e of [...enemies])removeEnemy(e);boss=null;greenGoblin=null}
 function makePerson(type,x,z,hp){
  const g=new THREE.Group();scene.add(g);g.position.set(x,0,z);
- let bodyMat=mat(type==='greenGoblin'?0x43834b:type==='kingpin'?0x282d39:type==='docock'?0x8b3e29:type==='venom'?0x10141a:0x343b49,.34,.07);
- let skin=mat(type==='greenGoblin'?0x65a957:type==='venom'?0x1b1d25:0xc9a080,.35,.03);
- let big=['kingpin','docock','venom'].includes(type);
- // Smooth display-mannequin torsos for human-sized male characters; the larger bosses keep their oversized silhouettes.
- const maleTorsoProfile=[[.19,.56],[.235,.68],[.29,.84],[.265,1.02],[.255,1.18],[.325,1.34],[.385,1.50],[.415,1.62],[.235,1.79],[.13,1.88]].map(([r,y])=>new THREE.Vector2(r,y)); // broader adult male shoulders, flat chest and tapered waist
- const body=mesh(big?new THREE.CapsuleGeometry(.62,1.05,8,14):new THREE.LatheGeometry(maleTorsoProfile,20),bodyMat,g);
- if(big)body.position.y=1.6;
- const head=mesh(new THREE.SphereGeometry(big?.4:.29,18,14),skin,g);head.position.y=big?2.55:2.1;
- const neck=mesh(new THREE.CylinderGeometry(big?.15:.11,big?.18:.13,big?.25:.20,12),skin,g);neck.position.y=big?2.20:1.98;
+ const bodyMat=mat(type==='greenGoblin'?0x43834b:type==='kingpin'?0x282d39:type==='docock'?0x8b3e29:type==='venom'?0x10141a:0x343b49,.52,.04);
+ const skin=mat(type==='greenGoblin'?0x65a957:type==='venom'?0x1b1d25:0xc9a080,.92,0);
+ pixelateMaterial(bodyMat,bodyMat.color.getHex(),0x75818a,0x1b242e,0x101820);
+ pixelateMaterial(skin,skin.color.getHex(),0xe2b08c,0x815c47,0x4e382c);
+ const big=['kingpin','docock','venom'].includes(type);
+ // Voxel-style male/boss body: broad square shoulders, flat chest, block head and rectangular limbs.
+ const body=mesh(new THREE.BoxGeometry(big?1.42:.86,big?1.48:1.24,big?.72:.50),bodyMat,g);
+ body.position.y=big?1.62:1.30;
+ const head=mesh(new THREE.BoxGeometry(big?.76:.56,big?.70:.56,big?.68:.56),skin,g);head.position.y=big?2.76:2.20;
+ const neck=mesh(new THREE.BoxGeometry(big?.25:.19,big?.24:.20,big?.25:.20),skin,g);neck.position.y=big?2.23:1.95;
  const enemyArms=[],enemyLegs=[],docTentacleLines=[],mannequinJoints=[];
- function addEnemyJoint(material,x,y,z,sx,sy=sx,sz=sx){const j=mannequinJoint(g,material,x,y,z,sx,sy,sz);mannequinJoints.push(j);return j}
- for(let sideSign of [-1,1]){
-  const arm=mesh(new THREE.CapsuleGeometry(big?.20:.17,big?.80:.72,7,12),bodyMat,g);
-  arm.position.set(sideSign*(big?.60:.455),big?1.65:1.46,0);enemyArms.push(arm);
-  const leg=mesh(new THREE.CapsuleGeometry(big?.19:.17,big?.68:.62,7,12),dark,g);
-  leg.position.set(sideSign*.22,.45,0);enemyLegs.push(leg);
-  addEnemyJoint(bodyMat,sideSign*(big?.56:.425),big?2.00:1.79,0,big?.21:.17,big?.19:.16,big?.17:.15);
-  addEnemyJoint(bodyMat,sideSign*(big?.62:.465),big?1.48:1.35,.005,big?.16:.13,big?.15:.13,big?.14:.12);
-  addEnemyJoint(bodyMat,sideSign*(big?.59:.43),big?1.15:1.02,.02,big?.125:.095,big?.13:.10,big?.12:.095);
-  addEnemyJoint(bodyMat,sideSign*.22,big?1.08:.87,0,big?.17:.12,big?.15:.12,big?.16:.12);
-  addEnemyJoint(dark,sideSign*.22,.47,0,big?.15:.11,big?.14:.105,big?.14:.11);
-  addEnemyJoint(dark,sideSign*.22,.12,.02,big?.115:.085,big?.10:.08,big?.13:.095);
-  const foot=mesh(new THREE.CapsuleGeometry(big?.12:.085,big?.20:.15,4,7),dark,g);foot.rotation.x=Math.PI/2;foot.position.set(sideSign*.22,.08,.10);
+ function addEnemyJoint(material,jx,jy,jz,sx,sy=sx,sz=sx){const j=mannequinJoint(g,material,jx,jy,jz,sx,sy,sz);mannequinJoints.push(j);return j}
+ for(const sideSign of [-1,1]){
+  const arm=mesh(new THREE.BoxGeometry(big?.34:.27,big?.88:.76,big?.34:.29),bodyMat,g);
+  arm.position.set(sideSign*(big?.82:.57),big?1.66:1.48,0);enemyArms.push(arm);
+  const leg=mesh(new THREE.BoxGeometry(big?.34:.27,big?.78:.70,big?.36:.30),dark,g);
+  leg.position.set(sideSign*(big?.27:.22),big?.48:.44,0);enemyLegs.push(leg);
+  addEnemyJoint(bodyMat,sideSign*(big?.68:.46),big?2.04:1.80,0,big?.20:.15,big?.20:.15,big?.20:.15);
+  addEnemyJoint(bodyMat,sideSign*(big?.82:.57),big?1.66:1.48,0,big?.17:.13,big?.17:.13,big?.17:.13);
+  addEnemyJoint(bodyMat,sideSign*(big?.82:.57),big?1.22:1.10,.015,big?.14:.105,big?.14:.105,big?.14:.105);
+  addEnemyJoint(dark,sideSign*(big?.27:.22),big?.88:.78,0,big?.15:.11,big?.15:.11,big?.15:.11);
+  addEnemyJoint(dark,sideSign*(big?.27:.22),.22,.02,big?.12:.09,big?.12:.09,big?.12:.09);
+  const foot=mesh(new THREE.BoxGeometry(big?.38:.30,.18,.45),dark,g);foot.position.set(sideSign*(big?.27:.22),.09,.12);
  }
  if(type==='greenGoblin'){
-  let hood=mesh(new THREE.ConeGeometry(.43,.75,8),mat(0x285c37,.38,.04),g);hood.position.y=2.85;hood.rotation.z=Math.PI;
-  for(let sideSign of [-1,1]){let ear=mesh(new THREE.ConeGeometry(.12,.4,5),bodyMat,g);ear.position.set(sideSign*.38,2.38,0);ear.rotation.z=sideSign*.8}
+  const hoodMat=mat(0x285c37,.5,.03);
+  const hood=mesh(new THREE.BoxGeometry(.72,.52,.66),hoodMat,g);hood.position.y=2.93;
+  const brow=mesh(new THREE.BoxGeometry(.62,.10,.12),mat(0x193d29),g);brow.position.set(0,2.72,.34);
+  for(const sideSign of [-1,1]){const ear=mesh(new THREE.BoxGeometry(.18,.38,.24),bodyMat,g);ear.position.set(sideSign*.43,2.45,0);ear.rotation.z=sideSign*.18;}
  }
- if(type==='kingpin'){let tie=mesh(new THREE.BoxGeometry(.14,.52,.08),mat(0xb91e39,.4,.03),g);tie.position.set(0,1.85,.36)}
+ if(type==='kingpin'){
+  const tie=mesh(new THREE.BoxGeometry(.14,.52,.08),mat(0xb91e39,.4,.03),g);tie.position.set(0,1.88,.375);
+  const jacketL=mesh(new THREE.BoxGeometry(.20,.95,.54),bodyMat,g);jacketL.position.set(-.47,1.66,.02);
+  const jacketR=mesh(new THREE.BoxGeometry(.20,.95,.54),bodyMat,g);jacketR.position.set(.47,1.66,.02);
+ }
  if(type==='docock'){
-  for(let i=0;i<4;i++){let a=mesh(new THREE.CapsuleGeometry(.10,1.05,4,7),mat(0xb76a35,.27,.65),g);a.position.set((i-1.5)*.38,1.65,-.3);a.rotation.z=(i-1.5)*.3;const tip=mesh(new THREE.SphereGeometry(.16,8,6),mat(0xf3b94c,.3,.5),g);tip.position.set((i-1.5)*.62,2.1,-.4)}
+  for(let i=0;i<4;i++){
+   const a=mesh(new THREE.BoxGeometry(.16,1.20,.16),mat(0xb76a35,.35,.48),g);a.position.set((i-1.5)*.40,1.72,-.34);a.rotation.z=(i-1.5)*.28;
+   const tip=mesh(new THREE.BoxGeometry(.23,.23,.23),mat(0xf3b94c,.35,.35),g);tip.position.set((i-1.5)*.65,2.15,-.39);
+  }
   for(let i=0;i<4;i++){const ln=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xaeb8c4,transparent:true,opacity:.95}));ln.visible=false;scene.add(ln);docTentacleLines.push(ln)}
  }
  if(type==='venom'){
-  body.material=mat(0x06080b,.23,.25);skin.color.set(0x11161c);skin.roughness=.27;skin.metalness=.08;
+  body.material=mat(0x06080b,.25,.18);skin.color.set(0x11161c);skin.roughness=.28;skin.metalness=.06;
   body.scale.set(1.22,1.08,1.1);
-  const eyeMat=mat(0xf4f6f8,.2,.04);
-  for(const sx of [-1,1]){const eye=mesh(new THREE.SphereGeometry(.17,12,8),eyeMat,g);eye.scale.set(.95,.5,.28);eye.position.set(sx*.20,2.64,.29);eye.rotation.z=-sx*.28;}
-  const mouth=mesh(new THREE.BoxGeometry(.55,.24,.12),mat(0x290b12,.31,.02),g);mouth.position.set(0,2.32,.34);
-  for(let i=0;i<6;i++){const tooth=mesh(new THREE.ConeGeometry(.055,.17,4),mat(0xf5f6f7,.25,.02),g);tooth.position.set(-.23+i*.092,2.34,.42);tooth.rotation.x=Math.PI;}
-  for(let i=0;i<5;i++){const tooth=mesh(new THREE.ConeGeometry(.05,.14,4),mat(0xf5f6f7,.25,.02),g);tooth.position.set(-.19+i*.095,2.22,.42);}
-  for(let i=0;i<5;i++){const tendril=mesh(new THREE.CapsuleGeometry(.075,.75+Math.random()*.55,4,6),mat(0x10161d,.26,.12),g);tendril.position.set((i-2)*.23,1.75,-.48);tendril.rotation.z=(i-2)*.32;tendril.rotation.x=-.3;}
+  const eyeMat=mat(0xf4f6f8,.25,.02);
+  for(const sx of [-1,1]){const eye=mesh(new THREE.BoxGeometry(.28,.15,.08),eyeMat,g);eye.position.set(sx*.23,2.78,.34);eye.rotation.z=-sx*.22;}
+  const mouth=mesh(new THREE.BoxGeometry(.58,.22,.12),mat(0x290b12,.31,.02),g);mouth.position.set(0,2.48,.36);
+  for(let i=0;i<6;i++){const tooth=mesh(new THREE.BoxGeometry(.07,.15,.08),mat(0xf5f6f7,.25,.02),g);tooth.position.set(-.25+i*.10,2.50,.44);}
+  for(let i=0;i<5;i++){const tendril=mesh(new THREE.BoxGeometry(.12,.85+Math.random()*.45,.12),mat(0x10161d,.32,.08),g);tendril.position.set((i-2)*.25,1.80,-.52);tendril.rotation.z=(i-2)*.28;}
  }
- if(type==='bandit'){let weapon=mesh(new THREE.BoxGeometry(.4,.12,.14),dark,g);weapon.position.set(.58,1.47,.2)}
+ if(type==='bandit'){
+  const weapon=mesh(new THREE.BoxGeometry(.42,.14,.16),dark,g);weapon.position.set(.66,1.50,.20);
+ }
  if(type==='greenGoblin')g.scale.setScalar(1.06);
  if(type==='bandit')g.scale.setScalar(1.035);
  if(type==='venom')g.scale.setScalar(2.05);
@@ -467,63 +545,56 @@ function updateIntro(dt){
 }
 function createMJ(){
  const g=new THREE.Group();
- const outfit=mat(0x356f56,.42,.04),skirt=mat(0x8a3248,.43,.03),skin=mat(0xe3b398,.34,.025),hair=mat(0xb72e35,.47,.03),shoe=mat(0x25242d,.35,.04);
- const body=mesh(new THREE.CapsuleGeometry(.34,.7,7,12),outfit,g);body.position.y=1.42;
- const waist=mesh(new THREE.CapsuleGeometry(.27,.18,5,10),skirt,g);waist.scale.set(1.05,1,.78);waist.position.y=.92;
- const neck=mesh(new THREE.CylinderGeometry(.105,.13,.19,12),skin,g);neck.position.y=1.99;
- const headMJ=mesh(new THREE.SphereGeometry(.3,18,14),skin,g);headMJ.position.set(0,2.27,.03);
- const hairBack=mesh(new THREE.SphereGeometry(.34,16,12),hair,g);hairBack.scale.set(1.04,1.14,.95);hairBack.position.set(0,2.33,-.065);
- const fringe=mesh(new THREE.SphereGeometry(.23,12,8),hair,g);fringe.scale.set(1.1,.48,.65);fringe.position.set(0,2.48,.22);
- // Featureless face gives MJ the smooth display-mannequin look.
+ const outfit=pixelateMaterial(mat(0x356f56,.92,0),0x356f56,0x548f70,0x234c3b,0x142a20),skirt=pixelateMaterial(mat(0x8a3248,.92,0),0x8a3248,0xb64e65,0x542032,0x35121e),skin=pixelateMaterial(mat(0xe3b398,.92,0),0xe3b398,0xf4c9a8,0xa77a63,0x65483b),hair=pixelateMaterial(mat(0xf0cf72,.92,0),0xf0cf72,0xffe6a0,0xa87931,0x63451e),shoe=pixelateMaterial(mat(0x25242d,.92,0),0x25242d,0x41454b,0x101217,0x08090b);
+ const body=mesh(new THREE.BoxGeometry(.62,1.02,.38),outfit,g);body.position.y=1.42;
+ const waist=mesh(new THREE.BoxGeometry(.52,.34,.40),skirt,g);waist.position.y=.77;
+ const neck=mesh(new THREE.BoxGeometry(.19,.18,.19),skin,g);neck.position.y=1.99;
+ const headMJ=mesh(new THREE.BoxGeometry(.52,.52,.52),skin,g);headMJ.position.set(0,2.27,.03);
+ const hairBack=mesh(new THREE.BoxGeometry(.56,.58,.56),hair,g);hairBack.position.set(0,2.33,-.065);
+ const fringe=mesh(new THREE.BoxGeometry(.56,.16,.34),hair,g);fringe.position.set(0,2.58,.15);
  const armsMJ=[],legsMJ=[],jointsMJ=[];
  for(const sx of [-1,1]){
-  const arm=mesh(new THREE.CapsuleGeometry(.11,.56,5,9),skin,g);arm.position.set(sx*.42,1.52,0);armsMJ.push(arm);
-  const leg=mesh(new THREE.CapsuleGeometry(.13,.54,5,9),shoe,g);leg.position.set(sx*.16,.42,0);legsMJ.push(leg);
+  const arm=mesh(new THREE.BoxGeometry(.20,.70,.22),skin,g);arm.position.set(sx*.42,1.52,0);armsMJ.push(arm);
+  const leg=mesh(new THREE.BoxGeometry(.23,.66,.25),shoe,g);leg.position.set(sx*.16,.42,0);legsMJ.push(leg);
   jointsMJ.push(mannequinJoint(g,outfit,sx*.37,1.73,0,.13,.13,.13));
   jointsMJ.push(mannequinJoint(g,skin,sx*.43,1.50,0,.085,.085,.085));
   jointsMJ.push(mannequinJoint(g,skin,sx*.42,1.25,.015,.075,.075,.075));
   jointsMJ.push(mannequinJoint(g,skirt,sx*.16,.73,0,.13,.13,.12));
   jointsMJ.push(mannequinJoint(g,shoe,sx*.16,.42,0,.105,.11,.105));
-  const hand=mesh(new THREE.SphereGeometry(.085,10,8),skin,g);hand.position.set(sx*.43,1.22,.02);
+  const hand=mesh(new THREE.BoxGeometry(.16,.16,.16),skin,g);hand.position.set(sx*.43,1.22,.02);
  }
- g.userData={arms:armsMJ,legs:legsMJ,head:headMJ,body,joints:jointsMJ};scene.add(g);return g;
+ g.userData={arms:armsMJ,legs:legsMJ,joints:jointsMJ,head,body};scene.add(g);return g;
 }
 function makeCrowdPerson(x,z,scale,color,seed){
  const g=new THREE.Group();
- const isGwen=seed===110, isJonah=seed===111;
- const isFemale=isGwen||(!isJonah&&seed%4===2);
- const shirt=mat(color,.43,.035),pants=mat(seed%3===0?0x202b3b:seed%3===1?0x363137:0x343d40,.46,.035),skin=mat(seed%4===0?0x9d6a4d:seed%4===1?0xd9ad8e:0xb98064,.35,.025);
- // Lathed torsos give the crowd smooth mannequin anatomy instead of a single capsule.
- // Female silhouettes use a narrower waist with softly rounded chest and hip transitions.
- const maleProfile=[[.16,.72],[.19,.80],[.215,.94],[.20,1.08],[.205,1.24],[.255,1.39],[.295,1.52],[.265,1.63],[.15,1.74],[.10,1.78]]; // flat-chested male mannequin silhouette
- const femaleProfile=[[.155,.72],[.205,.78],[.235,.89],[.22,.99],[.165,1.12],[.16,1.24],[.195,1.37],[.235,1.49],[.22,1.59],[.17,1.68],[.125,1.76],[.10,1.78]];
- const profile=(isFemale?femaleProfile:maleProfile).map(([r,y])=>new THREE.Vector2(r,y));
- const body=mesh(new THREE.LatheGeometry(profile,20),shirt,g);
- const hip=mesh(new THREE.SphereGeometry(.205,16,12),pants,g);
- hip.scale.set(isFemale?1.18:1,.62,.82);hip.position.set(0,.82,0);
- const neck=mesh(new THREE.CylinderGeometry(.07,.09,.13,10),skin,g);neck.position.y=1.67;
- const head=mesh(new THREE.SphereGeometry(.20,16,12),skin,g);head.position.y=1.93;
+ const isGwen=seed===110,isJonah=seed===111;
+ const shirt=mat(color,.92,0),pants=mat(seed%3===0?0x202b3b:seed%3===1?0x363137:0x343d40,.92,0),skin=mat(seed%4===0?0x9d6a4d:seed%4===1?0xd9ad8e:0xb98064,.92,0);
+ pixelateMaterial(shirt,color,0xa4a7a8,0x26323c,0x111922);pixelateMaterial(pants,pants.color.getHex(),0x5b5660,0x191b24,0x0d1118);pixelateMaterial(skin,skin.color.getHex(),0xe5b99b,0x815c47,0x4d382d);
+ const torso=mesh(new THREE.BoxGeometry(isGwen?.48:.52,.82,.34),shirt,g);torso.position.y=1.31;
+ const hip=mesh(new THREE.BoxGeometry(.48,.28,.34),pants,g);hip.position.set(0,.78,0);
+ const neck=mesh(new THREE.BoxGeometry(.14,.14,.14),skin,g);neck.position.y=1.78;
+ const head=mesh(new THREE.BoxGeometry(.40,.40,.40),skin,g);head.position.y=2.04;
  const hairColor=isGwen?0xf0cf72:(isJonah?0x262328:(seed%2?0x211b1b:0x49342b));
- const hairMaterial=mat(hairColor,.42,.025);
- const haircap=mesh(new THREE.SphereGeometry(.205,14,10),hairMaterial,g);haircap.scale.set(1,.55,1);haircap.position.set(0,2.05,-.015);
+ const hairMaterial=pixelateMaterial(mat(hairColor,.92,0),hairColor,0xf1d68b,0x33241f,0x170f0d);
+ const haircap=mesh(new THREE.BoxGeometry(.43,.13,.43),hairMaterial,g);haircap.position.set(0,2.30,-.015);
  if(isGwen){
-  // Gwen's blonde bob and side locks, still in a smooth stylized mannequin style.
-  const hairBack=mesh(new THREE.SphereGeometry(.205,14,10),hairMaterial,g);hairBack.scale.set(1.06,1.05,.78);hairBack.position.set(0,1.94,-.095);
-  for(const sx of [-1,1]){
-   const lock=mesh(new THREE.CapsuleGeometry(.052,.22,5,8),hairMaterial,g);
-   lock.position.set(sx*.168,1.82,-.005);lock.rotation.z=-sx*.08;
-  }
+  // Gwen's blonde block-bob and square side locks.
+  const hairBack=mesh(new THREE.BoxGeometry(.44,.44,.38),hairMaterial,g);hairBack.position.set(0,2.03,-.11);
+  for(const sx of [-1,1]){const lock=mesh(new THREE.BoxGeometry(.12,.36,.14),hairMaterial,g);lock.position.set(sx*.19,1.88,-.005)}
  }
  const armsC=[],legsC=[],mannequinJoints=[];
  for(const sx of [-1,1]){
-  const arm=mesh(new THREE.CapsuleGeometry(isFemale?.069:.075,isFemale?.40:.42,5,8),shirt,g);arm.position.set(sx*(isFemale?.285:.30),1.27,0);armsC.push(arm);
-  const leg=mesh(new THREE.CapsuleGeometry(isFemale?.079:.085,.42,5,8),pants,g);leg.position.set(sx*(isFemale?.125:.12),.48,0);legsC.push(leg);
-  mannequinJoints.push(mannequinJoint(g,shirt,sx*(isFemale?.275:.29),1.48,0,.09,.09,.09));
-  mannequinJoints.push(mannequinJoint(g,skin,sx*(isFemale?.285:.30),1.22,.01,.065,.065,.065));
-  mannequinJoints.push(mannequinJoint(g,pants,sx*(isFemale?.125:.12),.48,0,.075,.08,.075));
+  const arm=mesh(new THREE.BoxGeometry(.18,.62,.19),shirt,g);arm.position.set(sx*.34,1.31,0);armsC.push(arm);
+  const leg=mesh(new THREE.BoxGeometry(.19,.62,.21),pants,g);leg.position.set(sx*.13,.43,0);legsC.push(leg);
+  mannequinJoints.push(mannequinJoint(g,shirt,sx*.33,1.57,0,.10,.10,.10));
+  mannequinJoints.push(mannequinJoint(g,skin,sx*.34,1.12,.01,.07,.07,.07));
+  mannequinJoints.push(mannequinJoint(g,pants,sx*.13,.43,0,.09,.09,.09));
+  const hand=mesh(new THREE.BoxGeometry(.15,.15,.15),skin,g);hand.position.set(sx*.34,.97,.02);
+  const foot=mesh(new THREE.BoxGeometry(.22,.13,.32),pants,g);foot.position.set(sx*.13,.08,.07);
  }
  g.position.set(x,0,z);g.scale.setScalar(scale);g.rotation.y=Math.PI;
- g.userData={arms:armsC,legs:legsC,joints:mannequinJoints,seed,isFemale,isGwen,gait:Math.random()*6.28,cheer:Math.random()*6.28};crowdGroup.add(g);return g;
+ g.userData={arms:armsC,legs:legsC,joints:mannequinJoints,head,torso,seed,isFemale:isGwen||(!isJonah&&seed%4===2),isGwen,gait:Math.random()*6.28,cheer:Math.random()*6.28};
+ crowdGroup.add(g);return g;
 }
 function createCrowdScene(){
  if(crowdGroup){scene.remove(crowdGroup)}
@@ -536,7 +607,7 @@ function createCrowdScene(){
   actor.userData.leaveStart=actor.position.clone();
   crowdActors.push(actor);
  }
- gwenActor=makeCrowdPerson(-2.6,4.5,.95,0x356d88,110);
+ gwenActor=makeCrowdPerson(-2.6,4.5,1.0,0x356d88,110);
  gwenActor.userData.leaveStart=gwenActor.position.clone();
  jonahActor=makeCrowdPerson(2.6,4.5,.95,0x6b4b43,111);
  jonahActor.userData.leaveStart=jonahActor.position.clone();
@@ -632,8 +703,8 @@ function enterEndingStage(index){
  if(stage.type==='walkPrivate'){
   if(crowdGroup)crowdGroup.visible=false;
   if(gwenActor&&gwenActor.parent!==scene)scene.attach(gwenActor);
-  if(gwenActor){gwenActor.visible=true;gwenActor.position.set(-2.6,0,4.5)}
-  player.scale.setScalar(1);setSuitMode(true);setMaskMode(true);
+  if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.visible=true;gwenActor.position.set(-2.6,0,4.5)}
+  player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);setSuitMode(true);setMaskMode(true);
   player.position.set(0,0,-2.6);player.rotation.set(0,0,0);
   cutsceneData.walkStartPlayer=player.position.clone();
   cutsceneData.walkStartGwen=gwenActor?gwenActor.position.clone():new THREE.Vector3(-2.6,0,4.5);
@@ -656,20 +727,20 @@ function enterEndingStage(index){
   cutsceneData.roofTargetPlayer=new THREE.Vector3(cutsceneData.roofKissX-.62,cutsceneData.roofKissY,cutsceneData.roofKissZ);
   cutsceneData.roofTargetGwen=new THREE.Vector3(cutsceneData.roofKissX+.62,cutsceneData.roofKissY,cutsceneData.roofKissZ);
   cutsceneData.suitRemoved=false;
-  player.scale.setScalar(.74);setSuitMode(true);setMaskMode(false);
+  player.scale.setScalar(.69);setSuitMode(true);setMaskMode(false);
   if(!webLine){webLine=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xe8fbff}));scene.add(webLine)}
   webLine.visible=true;
  }
  if(stage.type==='walkAway'){
   if(crowdGroup)crowdGroup.visible=false;
-  setSuitMode(true);setMaskMode(true);player.scale.setScalar(.74);
+  setSuitMode(true);setMaskMode(true);player.scale.setScalar(.69);
   cutsceneData.walkAwayStart=player.position.clone();
   cutsceneData.walkAwayTarget=new THREE.Vector3(cutsceneData.roofKissX+7,cutsceneData.roofKissY,cutsceneData.roofKissZ-2.5);
   if(webLine)webLine.visible=false;
  }
  if(stage.type==='swingAway'){
   if(crowdGroup)crowdGroup.visible=false;
-  setSuitMode(true);setMaskMode(true);player.scale.setScalar(.74);
+  setSuitMode(true);setMaskMode(true);player.scale.setScalar(.69);
   cutsceneData.patrolSwingStart=player.position.clone();
   const ru=endingRoof.userData;
   cutsceneData.patrolSwingAnchor=new THREE.Vector3(ru.x+ru.w*.5+1,ru.h+3,cutsceneData.roofKissZ+1.5);
@@ -681,9 +752,9 @@ function enterEndingStage(index){
  if(stage.type==='suitRemoval'){
   if(crowdGroup)crowdGroup.visible=false;
   player.position.set(cutsceneData.roofKissX-.72,cutsceneData.roofKissY,cutsceneData.roofKissZ);
-  if(gwenActor)gwenActor.position.set(cutsceneData.roofKissX+.72,cutsceneData.roofKissY,cutsceneData.roofKissZ);
+  if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(cutsceneData.roofKissX+.72,cutsceneData.roofKissY,cutsceneData.roofKissZ);}
   player.rotation.y=Math.PI/2;if(gwenActor)gwenActor.rotation.y=-Math.PI/2;
-  player.scale.setScalar(1);cutsceneData.suitRemoved=false;
+  player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);cutsceneData.suitRemoved=false;
  }
 }
 function startEnding(){
@@ -719,11 +790,11 @@ function finishEnding(){
  const fx=cutsceneData&&Number.isFinite(cutsceneData.roofKissX)?cutsceneData.roofKissX:0;
  const fy=cutsceneData&&Number.isFinite(cutsceneData.roofKissY)?cutsceneData.roofKissY:0;
  const fz=cutsceneData&&Number.isFinite(cutsceneData.roofKissZ)?cutsceneData.roofKissZ:-6;
- player.scale.setScalar(cutsceneData&&cutsceneData.choice==='kiss'?.64:.74);
+ player.scale.setScalar(cutsceneData&&cutsceneData.choice==='kiss'?.69:.69);
  if(cutsceneData&&cutsceneData.choice==='go'){setSuitMode(true);setMaskMode(true)}else{setSuitRemovedMode();setMaskMode(false)}
  if(cutsceneData&&cutsceneData.choice==='go'&&cutsceneData.patrolSwingEnd){player.position.copy(cutsceneData.patrolSwingEnd);player.rotation.set(-.16,Math.PI/2,-.18)}
  else{player.position.set(fx-.25,fy,fz);player.rotation.set(0,Math.PI/2,cutsceneData&&cutsceneData.choice==='kiss' ? -.06 : 0)}
- if(gwenActor){gwenActor.visible=true;gwenActor.position.set(fx+.25,fy,fz);gwenActor.rotation.set(0,-Math.PI/2,0);}
+ if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.visible=true;gwenActor.position.set(fx+.25,fy,fz);gwenActor.rotation.set(0,-Math.PI/2,0);gwenActor.scale.setScalar(1);}
  cutsceneData=null;completeLevel();$('msg').innerHTML='';showFinish();
 }
 function resetKissPose(){
@@ -734,7 +805,7 @@ function resetKissPose(){
  // They face each other: Peter faces +X; Gwen faces -X.
  player.position.set(x-.18,y,z);
  player.rotation.set(0,Math.PI/2,-.045);
- player.scale.setScalar(.64);
+ player.scale.setScalar(.69);
  setSuitRemovedMode();
  setMaskMode(false);
  // Bring Peter's face slightly forward and lean it toward Gwen.
@@ -749,7 +820,7 @@ function resetKissPose(){
   gwenActor.visible=true;
   gwenActor.position.set(x+.18,y,z);
   gwenActor.rotation.set(0,-Math.PI/2,.045);
-  gwenActor.scale.setScalar(.95);
+  gwenActor.scale.setScalar(1);
   if(gwenActor.userData){
    // Gwen's head and torso are separate mannequin meshes, so move the head forward as well.
    gwenActor.userData.head.position.set(0,1.93,.02);
@@ -782,8 +853,8 @@ function updateEnding(dt){
  if(stage.type==='endingChoice'){
   if(crowdGroup)crowdGroup.visible=false;
   const px=d.roofKissX??0,py=d.roofKissY??0,pz=d.roofKissZ??0;
-  player.position.set(px-.18,py,pz);player.rotation.set(0,Math.PI/2,0);player.scale.setScalar(.74);setSuitMode(true);setMaskMode(false);
-  if(gwenActor){gwenActor.visible=true;gwenActor.position.set(px+.18,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
+  player.position.set(px-.18,py,pz);player.rotation.set(0,Math.PI/2,0);player.scale.setScalar(.69);setSuitMode(true);setMaskMode(false);
+  if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.visible=true;gwenActor.position.set(px+.18,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
   if(webLine)webLine.visible=false;
   $('endingChoices').style.display='flex';
   camera.position.lerp(new THREE.Vector3(px+3.6,py+3.0,pz+6.3),1-Math.exp(-dt*2.6));camera.lookAt(px,py+1.45,pz);
@@ -793,7 +864,7 @@ function updateEnding(dt){
  const privateTypes=['privateTalk','unmask','kissTen','endTitle','titleHold'];
  if(stage.type==='crowd'||stage.type==='crowdAgain'||stage.type==='gwenSpeech'||stage.type==='jonahSpeech'||stage.type==='askGwen'){
   if(crowdGroup)crowdGroup.visible=true;
-  player.position.set(0,0,-2.6);player.scale.setScalar(1);player.rotation.y=stage.type==='askGwen'?-0.35:0;
+  player.position.set(0,0,-2.6);player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);player.rotation.y=stage.type==='askGwen'?-0.35:0;
   setSuitMode(true);setMaskMode(true);
   if(stage.type==='crowd'||stage.type==='crowdAgain'){
    camera.position.lerp(new THREE.Vector3(0,9,-13),1-Math.exp(-dt*1.8));camera.lookAt(0,2,11);
@@ -835,7 +906,7 @@ function updateEnding(dt){
    jonahActor.userData.legs[1].rotation.x=Math.sin(gait+Math.PI)*.32;
   }
   // Keep Gwen in place so she can leave with Peter after the crowd clears.
-  if(gwenActor){gwenActor.visible=true;gwenActor.position.set(-2.6,0,4.5);gwenActor.rotation.y=Math.PI;}
+  if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.visible=true;gwenActor.position.set(-2.6,0,4.5);gwenActor.rotation.y=Math.PI;}
   camera.position.lerp(new THREE.Vector3(0,8,-12),1-Math.exp(-dt*1.8));
   camera.lookAt(0,2,13);
  }else if(stage.type==='walkPrivate'){
@@ -845,7 +916,7 @@ function updateEnding(dt){
   player.position.lerpVectors(d.walkStartPlayer,d.walkTargetPlayer,p);
   if(gwenActor)gwenActor.position.lerpVectors(d.walkStartGwen,d.walkTargetGwen,p);
   player.rotation.y=d.walkYawPlayer; if(gwenActor)gwenActor.rotation.y=d.walkYawGwen;
-  player.scale.setScalar(.74);
+  player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);
   animateEndingWalk(t);
   const center=player.position.clone().lerp(gwenActor?gwenActor.position:player.position,.5);
   camera.position.lerp(center.clone().add(new THREE.Vector3(3.8,3.2,6.4)),1-Math.exp(-dt*2.6));camera.lookAt(center.clone().add(new THREE.Vector3(0,1.35,0)));
@@ -855,9 +926,9 @@ function updateEnding(dt){
   const p=smooth(t/stage.duration),startP=d.roofStartPlayer,startG=d.roofStartGwen,targetP=d.roofTargetPlayer,targetG=d.roofTargetGwen;
   const lift=Math.sin(p*Math.PI)*Math.max(4,Math.min(10,(d.roofKissY||20)*.12));
   player.position.set(approach(startP.x,targetP.x,p),approach(startP.y,targetP.y,p)+lift,approach(startP.z,targetP.z,p));
-  if(gwenActor)gwenActor.position.set(approach(startG.x,targetG.x,p),approach(startG.y,targetG.y,p)+lift,approach(startG.z,targetG.z,p));
+  if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(approach(startG.x,targetG.x,p),approach(startG.y,targetG.y,p)+lift,approach(startG.z,targetG.z,p));}
   player.rotation.y=Math.atan2(targetP.x-startP.x,targetP.z-startP.z);if(gwenActor)gwenActor.rotation.y=player.rotation.y+Math.PI;
-  player.scale.setScalar(.74);setSuitMode(true);setMaskMode(false);
+  player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);setSuitMode(true);setMaskMode(false);
   const hand=player.position.clone().add(new THREE.Vector3(.42,2.0,.08));
   const anchor=new THREE.Vector3(d.roofKissX,d.roofKissY+2,d.roofKissZ+1.4);
   if(webLine){webLine.visible=true;webLine.geometry.setFromPoints([hand,anchor]);}
@@ -866,31 +937,31 @@ function updateEnding(dt){
  }else if(privateTypes.includes(stage.type)||stage.type==='suitRemoval'||stage.type==='walkAway'||stage.type==='swingAway'){
   if(crowdGroup)crowdGroup.visible=false;
   const px=d.roofKissX??d.privateX??0,py=d.roofKissY??d.privateY??0,pz=d.roofKissZ??d.privateZ??-6;
-  player.scale.setScalar((stage.type==='kissTen'||stage.type==='endTitle'||stage.type==='titleHold') ? .74 : .74);
+  player.scale.setScalar(.69);
   if(stage.type==='privateTalk'){
    // Keep the red-and-blue suit on through Peter's face reveal and rooftop arrival.
-   player.position.set(px-.62,py,pz);player.rotation.set(0,Math.PI/2,0);player.scale.setScalar(.74);setSuitMode(true);
+   player.position.set(px-.62,py,pz);player.rotation.set(0,Math.PI/2,0);player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);setSuitMode(true);
    const unmasked=!!d.maskRemoved||stage.key==='end-gwen-peter'||stage.key==='end-roof-secret';
    setMaskMode(!unmasked);
-   if(gwenActor){gwenActor.visible=true;gwenActor.position.set(px+.62,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.visible=true;gwenActor.position.set(px+.62,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
    camera.position.lerp(new THREE.Vector3(px+3.6,py+3.0,pz+6.0),1-Math.exp(-dt*2.5));camera.lookAt(px,py+1.45,pz);
   }else if(stage.type==='unmask'){
-   player.position.set(px-.62,py,pz);player.rotation.y=Math.PI/2;player.scale.setScalar(.74);setSuitMode(true);
-   if(gwenActor){gwenActor.position.set(px+.62,py,pz);gwenActor.rotation.y=-Math.PI/2;}
+   player.position.set(px-.62,py,pz);player.rotation.y=Math.PI/2;player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);setSuitMode(true);
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(px+.62,py,pz);gwenActor.rotation.y=-Math.PI/2;}
    const p=smooth(t/stage.duration);
    arms[0].rotation.x=approach(0,-1.1,p);arms[1].rotation.x=approach(0,-.85,p);
    if(p>.68&&!d.maskRemoved){setMaskMode(false);d.maskRemoved=true;}
    camera.position.lerp(new THREE.Vector3(px+3.8,py+3.4,pz+6.8),1-Math.exp(-dt*2.8));camera.lookAt(px,py+1.65,pz);
   }else if(stage.type==='suitRemoval'){
-   player.position.set(px-.18,py,pz);player.rotation.y=Math.PI/2;player.scale.setScalar(.74);setSuitMode(true);setMaskMode(false);
-   if(gwenActor){gwenActor.position.set(px+.18,py,pz);gwenActor.rotation.y=-Math.PI/2;}
+   player.position.set(px-.18,py,pz);player.rotation.y=Math.PI/2;player.scale.setScalar(.69);if(gwenActor)gwenActor.scale.setScalar(1);setSuitMode(true);setMaskMode(false);
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(px+.18,py,pz);gwenActor.rotation.y=-Math.PI/2;}
    const p=smooth(t/stage.duration);
    // He changes from the red/blue suit into casual clothes; his scale eases to Gwen's height.
    arms[0].rotation.x=approach(-.08,-.62,Math.sin(p*Math.PI));
    arms[1].rotation.x=approach(-.08,-.52,Math.sin(p*Math.PI));
    arms[0].rotation.z=approach(0,-.28,Math.sin(p*Math.PI));
    arms[1].rotation.z=approach(0,.28,Math.sin(p*Math.PI));
-   player.scale.setScalar(approach(.74,.64,p));
+   player.scale.setScalar(.69);
    if(p>.48&&!d.suitRemoved){setSuitRemovedMode();setMaskMode(false);d.suitRemoved=true;}
    camera.position.lerp(new THREE.Vector3(px+4.2,py+3.5,pz+7.5),1-Math.exp(-dt*2.5));camera.lookAt(px,py+1.3,pz);
   }else if(stage.type==='kissTen'){
@@ -923,23 +994,23 @@ function updateEnding(dt){
    camera.position.lerp(new THREE.Vector3(px+2.0,py+2.25,pz+4.6),1-Math.exp(-dt*3));camera.lookAt(px,py+1.72,pz);
   }else if(stage.type==='endTitle'){
    const titlePos=(d.choice==='go'&&d.patrolSwingEnd)?d.patrolSwingEnd:new THREE.Vector3(px-.25,py,pz);
-   player.position.copy(titlePos);player.rotation.set(0,Math.PI/2,(d.choice==='go'&&d.patrolSwingEnd)?-.20:0);player.scale.setScalar(d.choice==='kiss'?.64:.74);
+   player.position.copy(titlePos);player.rotation.set(0,Math.PI/2,(d.choice==='go'&&d.patrolSwingEnd)?-.20:0);player.scale.setScalar(.69);
    if(d.choice==='kiss'){setSuitRemovedMode();setMaskMode(false)}else{setSuitMode(true);setMaskMode(true)}
-   if(gwenActor){gwenActor.position.set(px+.25,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0);}
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(px+.25,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0);}
    if(d.choice==='go'&&d.patrolSwingEnd&&webLine)webLine.visible=true;
    camera.position.lerp(new THREE.Vector3(titlePos.x+2.7,titlePos.y+3.2,titlePos.z+7),1-Math.exp(-dt*2));camera.lookAt(titlePos.clone().add(new THREE.Vector3(0,1.25,0)));
   }else if(stage.type==='titleHold'){
    const titlePos=(d.choice==='go'&&d.patrolSwingEnd)?d.patrolSwingEnd:new THREE.Vector3(px-.25,py,pz);
-   player.position.copy(titlePos);player.rotation.set(0,Math.PI/2,(d.choice==='go'&&d.patrolSwingEnd)?-.20:0);player.scale.setScalar(d.choice==='kiss'?.64:.74);
+   player.position.copy(titlePos);player.rotation.set(0,Math.PI/2,(d.choice==='go'&&d.patrolSwingEnd)?-.20:0);player.scale.setScalar(.69);
    if(d.choice==='kiss'){setSuitRemovedMode();setMaskMode(false)}else{setSuitMode(true);setMaskMode(true)}
-   if(gwenActor){gwenActor.position.set(px+.25,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(px+.25,py,pz);gwenActor.rotation.set(0,-Math.PI/2,0)}
    if(d.choice==='go'&&d.patrolSwingEnd&&webLine)webLine.visible=true;
    camera.position.lerp(new THREE.Vector3(titlePos.x+2.7,titlePos.y+3.2,titlePos.z+7),1-Math.exp(-dt*2));camera.lookAt(titlePos.clone().add(new THREE.Vector3(0,1.25,0)));
   }else if(stage.type==='walkAway'){
    const p=smooth(t/stage.duration);
-   player.position.lerpVectors(d.walkAwayStart,d.walkAwayTarget,p);player.scale.setScalar(.74);setSuitMode(true);setMaskMode(true);
+   player.position.lerpVectors(d.walkAwayStart,d.walkAwayTarget,p);player.scale.setScalar(.69);setSuitMode(true);setMaskMode(true);
    player.rotation.y=Math.atan2(d.walkAwayTarget.x-d.walkAwayStart.x,d.walkAwayTarget.z-d.walkAwayStart.z);
-   if(gwenActor){gwenActor.position.set(d.roofKissX+.25,d.roofKissY,d.roofKissZ);gwenActor.rotation.y=-Math.PI/2}
+   if(gwenActor){gwenActor.scale.setScalar(1);gwenActor.position.set(d.roofKissX+.25,d.roofKissY,d.roofKissZ);gwenActor.rotation.y=-Math.PI/2}
    animateEndingWalk(t);
    const center=player.position.clone().lerp(gwenActor?gwenActor.position:player.position,.35);
    camera.position.lerp(center.clone().add(new THREE.Vector3(5,3.2,7)),1-Math.exp(-dt*2));camera.lookAt(center.clone().add(new THREE.Vector3(0,1.2,0)));
@@ -952,7 +1023,7 @@ function updateEnding(dt){
    const lift=Math.sin(Math.PI*p)*7.0+1.8*p;
    player.position.set(start.x+7.5*forward, start.y+lift, start.z-15.0*forward);
    player.rotation.set(-.18*Math.sin(p*Math.PI),Math.PI*.5+.18*Math.sin(p*Math.PI),-.22*Math.sin(p*Math.PI));
-   player.scale.setScalar(.74);setSuitMode(true);setMaskMode(true);
+   player.scale.setScalar(.69);setSuitMode(true);setMaskMode(true);
    arms[0].rotation.set(-.75,0,-.45);arms[1].rotation.set(-.75,0,.45);
    legs[0].rotation.x=.4;legs[1].rotation.x=-.4;
    const hand=player.position.clone().add(new THREE.Vector3(0,1.8,.05));
@@ -1109,7 +1180,7 @@ function updatePlayerAnimation(dt,walkingSpeed,sprinting){
  gliderRig.visible=glidingPose;
  const bob=(walkingSpeed>.25&&!wallClimbing&&!swingAttached&&!glidingPose)?Math.abs(Math.sin(gaitTime*2))*(sprinting?.10:.055):0;
  // The torso geometry is centered around torsoPivotY, so animate only a small bob.
- torso.position.y=torsoPivotY+bob;pelvis.position.y=1.45+bob*.6;head.position.y=3.05+bob*.5;
+ torso.position.y=torsoPivotY+bob;pelvis.position.y=1.36+bob*.6;head.position.y=3.05+bob*.5;
  if(backflipTime>0){backflipTime=Math.max(0,backflipTime-dt);const progress=1-backflipTime/.68;player.rotation.x=Math.PI*2*progress;}
  else player.rotation.x=glidingPose?Math.PI/2:0;
 }
